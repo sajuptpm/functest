@@ -48,15 +48,21 @@ class ConcurrencyTesting(unittest.TestCase):
     def check_overlap(self):
         res = self.jclient.vpc.describe_vpcs()
         items = utils.get_item(('DescribeVpcsResponse', 'vpcSet', 'item'), res)
-        cidr_blocks = [item['cidrBlock'] for item in items]
-	return len(cidr_blocks) == len(set(cidr_blocks))
+        if isinstance(items, list):
+            cidr_blocks = [item['cidrBlock'] for item in items]
+        elif isinstance(items, dict):
+	    cidr_blocks = [items['cidrBlock']]
+        print "------", cidr_blocks
+	if (len(cidr_blocks) == len(set(cidr_blocks)) and len(cidr_blocks) > 0):
+	    return True
+        return False
 
     def test_con(self):
         cidr_block = '11.0.0.0/16'
         net = netaddr.IPNetwork(cidr_block)
-        threads = []
-        for vpc_cidr in list(net.subnet(28))[:settings.VPC_QUOTA]:
-	    threading.Thread(target=self.jclient.vpc.create_vpc, kwargs={'cidr_block':str(vpc_cidr)}).start() 
+        for x in range(settings.VPC_QUOTA):
+	    for y in range(20):
+                threading.Thread(target=self.jclient.vpc.create_vpc, kwargs={'cidr_block':cidr_block}).start() 
 	self.assertTrue(self.check_overlap())
 
     def tearDown(self):
